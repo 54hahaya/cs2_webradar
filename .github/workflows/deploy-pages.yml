@@ -32,6 +32,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Windows 文件系统大小写不敏感，import "./App.css" 也能跑；
+      # Linux 上会直接 Module not found。先拦一道，别等构建挂了才发现。
+      - run: npm run test:case
       - run: npm run build
       # .nojekyll: 让 Pages 跳过 Jekyll 处理（否则下划线开头的文件/目录会被吞）
       - run: touch dist/.nojekyll

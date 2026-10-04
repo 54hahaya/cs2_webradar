@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "serve": "node ws/app.js",
     "test:url": "node tools/test-ws-url.mjs",
-    "test:relay": "node tools/test-relay.mjs"
+    "test:relay": "node tools/test-relay.mjs",
+    "test:case": "node tools/check-case.mjs"
   },
   "dependencies": {
     "concurrently": "^9.0.1",
