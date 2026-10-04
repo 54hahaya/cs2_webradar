@@ -21,6 +21,38 @@
 
 ## 运行
 
+### DLL 自动托管（推荐）
+
+DLL 加载后会在**独立线程**里自己把中继（+ 可选隧道）拉起来，不用手动开 bat。
+配置在 **DLL 同目录**的 `radar.json`（首次运行自动生成）：
+
+```json
+{
+  "auto_start": true,
+  "mode": "public",
+  "webradar_dir": "E:\\...\\webradar",
+  "relay_port": 22006,
+  "node_exe": "node",
+  "cloudflared_exe": ""
+}
+```
+
+| mode | 行为 | 手机怎么访问 |
+|---|---|---|
+| `"public"` | 中继 + cloudflared 隧道 | **内外网通用**：任意网络用隧道地址 |
+| `"lan"` | 只起中继，不拉隧道 | **仅局域网**：手机得和 PC 同一个 WiFi |
+| `auto_start: false` | 完全不自动托管 | 自己跑 `start-all.bat` |
+
+日志里会直接打印可用地址：
+```
+[host] mode=public   webradar=E:\...\webradar
+[host] 中继 OK
+[host] 手机(同一WiFi) ->  http://192.168.x.x:22006
+[host] 手机(任意网络) ->  https://xxxx.trycloudflare.com
+```
+
+> `mode: "public"` 时**每次加载 DLL 都会自动开一个公网隧道**。只想局域网用就改成 `"lan"`。
+
 ### 一键启动（推荐）
 
 ```bat
