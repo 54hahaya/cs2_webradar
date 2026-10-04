@@ -14,17 +14,22 @@ echo.
 echo Then run this script to expose 22006 to the internet.
 echo.
 
+set CF_LOCAL=%~dp0tools\bin\cloudflared.exe
+set NG_LOCAL=%~dp0tools\bin\ngrok.exe
+
 set HAS_CF=
 set HAS_NG=
-where cloudflared >nul 2>nul && set HAS_CF=1
-where ngrok       >nul 2>nul && set HAS_NG=1
+if exist "%CF_LOCAL%" set HAS_CF=1
+if exist "%NG_LOCAL%" set HAS_NG=1
+if not defined HAS_CF (where cloudflared >nul 2>nul && set HAS_CF=1)
+if not defined HAS_NG (where ngrok       >nul 2>nul && set HAS_NG=1)
 
-if defined HAS_CF (echo   [x] cloudflared found) else (echo   [ ] cloudflared NOT found - recommended, free, no login)
-if defined HAS_NG (echo   [x] ngrok found)       else (echo   [ ] ngrok NOT found)
+if defined HAS_CF (echo   [x] cloudflared  found) else (echo   [ ] cloudflared  NOT found)
+if defined HAS_NG (echo   [x] ngrok        found) else (echo   [ ] ngrok        NOT found)
 echo.
-echo   Download:
-echo     cloudflared : https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
-echo     ngrok       : https://ngrok.com/download
+echo   cloudflared : https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+echo   ngrok       : https://ngrok.com/download
+echo   (put the exe in tools\bin\ and this script will use it automatically)
 echo.
 
 set CHOICE=
@@ -43,12 +48,16 @@ echo Starting cloudflared ...
 echo Copy the https://xxxx.trycloudflare.com URL and open it on your phone.
 echo Page and WebSocket share this single URL - no extra config.
 echo.
-cloudflared tunnel --url http://localhost:22006
+if exist "%CF_LOCAL%" (
+    "%CF_LOCAL%" tunnel --url http://localhost:22006 --no-autoupdate
+) else (
+    cloudflared tunnel --url http://localhost:22006
+)
 goto DONE
 
 :NOCF
 echo.
-echo [ERROR] cloudflared not found in PATH. Install it first.
+echo [ERROR] cloudflared not found (neither tools\bin\cloudflared.exe nor PATH).
 pause
 exit /b 1
 
@@ -58,12 +67,16 @@ echo.
 echo Starting ngrok ...
 echo Open the https://xxxx.ngrok-free.app URL on your phone.
 echo.
-ngrok http 22006
+if exist "%NG_LOCAL%" (
+    "%NG_LOCAL%" http 22006
+) else (
+    ngrok http 22006
+)
 goto DONE
 
 :NONG
 echo.
-echo [ERROR] ngrok not found in PATH. Install it first.
+echo [ERROR] ngrok not found (neither tools\bin\ngrok.exe nor PATH).
 pause
 exit /b 1
 

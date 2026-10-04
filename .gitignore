@@ -25,3 +25,6 @@ dist-ssr
 
 # 源素材，运行时用不到，不进仓库（文件仍保留在本地）
 *.psd
+
+# 本地工具二进制（cloudflared 等，几十 MB，不进仓库）
+tools/bin/
