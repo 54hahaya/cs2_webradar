@@ -10,13 +10,35 @@
 | `src/` | React 前端（Vite + Tailwind） |
 | `ws/app.js` | 中继：监听 **22006**，同时托管 `dist/` 静态页面 + `/cs2_webradar` WS |
 | `public/data/<map>/` | 17 张地图：`data.json`(x/y/scale) + `radar.png` + `background.png` |
+| `start-all.bat` | **一键启动**：构建 + 中继 + 隧道，并打印全部可用地址 |
 | `serve.bat` | 构建前端 + 起中继（一个端口给页面和 WS） |
 | `tunnel.bat` | 把 22006 暴露到公网（cloudflared / ngrok） |
 | `tools/test-ws-url.mjs` | 回归测试：各种部署形态下 WS 地址算得对不对 |
 | `tools/test-relay.mjs` | 回归测试：中继广播是否正常 |
+| `tools/check-case.mjs` | 回归测试：import 大小写（Linux CI 会挂，Windows 不会） |
+| `tools/test-tunnel.ps1` / `test-pages-flow.mjs` | 端到端：起中继+隧道，验证页面和 wss 真的通 |
 | `LICENSE-cs2_webradar` | 原项目 GPL-3.0 许可 |
 
 ## 运行
+
+### 一键启动（推荐）
+
+```bat
+start-all.bat
+```
+
+它会依次：构建前端 → 起中继(22006) → 起 cloudflared 隧道 → **把全部可用地址打在一屏**：
+
+```
+  PC 本机        : http://localhost:22006
+  手机(同一WiFi) : http://192.168.x.x:22006
+  手机(任意网络) : https://xxxx.trycloudflare.com
+  Pages 入口     : https://<user>.github.io/<repo>/?ip=xxxx.trycloudflare.com
+```
+
+按 `Ctrl+C` 退出，会一并关掉中继和隧道；中继的 `connected / disconnected` 也会实时转到屏幕上。
+
+### 分开跑（调试用）
 
 ```bat
 install.bat     :: 第一次，装 npm 依赖

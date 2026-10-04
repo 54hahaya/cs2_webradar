@@ -25,30 +25,44 @@ const PORT = 22006;
  *        局域网开发走这条（手机开 http://<PC-IP>:5173 自动生效）
  */
 const RELAY_MARKER = "cs2_webradar-relay";
+const RELAY_HOST_KEY = "radarRelayHost";     // 记住上次用过的 ?ip=
 
-const resolveWebSocketURL = async () => {
-  if (USE_LOCALHOST) return `ws://localhost:${PORT}/cs2_webradar`;
+const buildWsUrl = (host, tls) => {
+  const isIPv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+  // 域名（隧道/反代）走 443 + TLS，不带端口；IPv4 走 22006 明文
+  return isIPv4 ? `${tls}://${host}:${PORT}/cs2_webradar` : `wss://${host}/cs2_webradar`;
+};
+
+// 返回 { url, viaRemembered }
+//   useRemembered=false 时跳过"上次记住的地址"（隧道地址每次重启都会变，
+//   连不上几次之后就得丢掉，否则会一直对着一个失效域名重试）
+const resolveWebSocketURL = async ({ useRemembered = true } = {}) => {
+  if (USE_LOCALHOST) return { url: `ws://localhost:${PORT}/cs2_webradar`, viaRemembered: false };
 
   const tls = window.location.protocol === "https:" ? "wss" : "ws";
 
   const ipParam = new URLSearchParams(window.location.search).get("ip");
   if (ipParam) {
-    const isIPv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(ipParam);
-    return isIPv4
-      ? `${tls}://${ipParam}:${PORT}/cs2_webradar`
-      : `wss://${ipParam}/cs2_webradar`;
+    try { localStorage.setItem(RELAY_HOST_KEY, ipParam); } catch { /* 隐私模式忽略 */ }
+    return { url: buildWsUrl(ipParam, tls), viaRemembered: false };
+  }
+
+  if (useRemembered) {
+    let remembered = null;
+    try { remembered = localStorage.getItem(RELAY_HOST_KEY); } catch { /* ignore */ }
+    if (remembered) return { url: buildWsUrl(remembered, tls), viaRemembered: true };
   }
 
   try {
     const res = await fetch("./__relay", { cache: "no-store" });
     if (res.ok && (await res.text()).trim() === RELAY_MARKER) {
-      return `${tls}://${window.location.host}/cs2_webradar`;
+      return { url: `${tls}://${window.location.host}/cs2_webradar`, viaRemembered: false };
     }
   } catch {
     /* 探测失败就按局域网规则走 */
   }
 
-  return `ws://${window.location.hostname}:${PORT}/cs2_webradar`;
+  return { url: `ws://${window.location.hostname}:${PORT}/cs2_webradar`, viaRemembered: false };
 };
 
 const DEFAULT_SETTINGS = {
@@ -67,6 +81,8 @@ const App = () => {
   const [localTeam, setLocalTeam] = useState();
   const [bombData, setBombData] = useState();
   const [settings, setSettings] = useState(loadSettings());
+  const [connState, setConnState] = useState("connecting");   // connecting | online | retrying
+  const [connURL, setConnURL] = useState("");
 
   // Save settings to local storage whenever they change
   useEffect(() => {
@@ -92,61 +108,92 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      let connectionTimeout = null;
+    let ws = null;
+    let timer = null;
+    let stopped = false;
+    let attempt = 0;            // 连续失败次数，成功连上就归零
+    let rememberedFails = 0;    // "上次记住的地址"连续失败次数
 
-      const webSocketURL = await resolveWebSocketURL();
-      let webSocket = null;
+    // 退避：1s -> 2s -> 4s -> 8s -> 封顶 10s
+    const backoff = () => Math.min(1000 * 2 ** Math.max(0, attempt - 1), 10000);
+
+    const connect = async () => {
+      if (stopped) return;
+      setConnState(attempt === 0 ? "connecting" : "retrying");
+
+      // 记住的地址连不上 2 次以上就不再试它（隧道重启后地址会变）
+      let url;
+      let viaRemembered = false;
+      try {
+        const r = await resolveWebSocketURL({ useRemembered: rememberedFails < 2 });
+        url = r.url;
+        viaRemembered = r.viaRemembered;
+      } catch {
+        url = `ws://${window.location.hostname}:${PORT}/cs2_webradar`;
+      }
+      if (stopped) return;
+      setConnURL(url);
 
       try {
-        webSocket = new WebSocket(webSocketURL);
-      } catch (error) {
-        document.getElementsByClassName(
-          "radar_message"
-        )[0].textContent = `${error}`;
+        ws = new WebSocket(url);
+      } catch {
+        attempt += 1;
+        if (viaRemembered) rememberedFails += 1;
+        timer = setTimeout(connect, backoff());
         return;
       }
 
-      connectionTimeout = setTimeout(() => {
-        webSocket.close();
-      }, CONNECTION_TIMEOUT);
+      // 握手看门狗：连不上就赶紧关掉走重连，别一直挂着
+      const watchdog = setTimeout(() => { try { ws.close(); } catch { /* ignore */ } }, CONNECTION_TIMEOUT);
 
-      webSocket.onopen = async () => {
-        clearTimeout(connectionTimeout);
-        console.info("connected to the web socket");
+      ws.onopen = () => {
+        clearTimeout(watchdog);
+        attempt = 0;
+        rememberedFails = 0;
+        setConnState("online");
+        console.info("[ws] connected", url);
       };
 
-      webSocket.onclose = async () => {
-        clearTimeout(connectionTimeout);
-        console.error("disconnected from the web socket");
-      };
-
-      webSocket.onerror = async (error) => {
-        clearTimeout(connectionTimeout);
-        document.getElementsByClassName(
-          "radar_message"
-        )[0].textContent = `WebSocket connection to '${webSocketURL}' failed. Please check the IP address and try again`;
-        console.error(error);
-      };
-
-      webSocket.onmessage = async (event) => {
-        const parsedData = JSON.parse(await event.data.text());
-        setPlayerArray(parsedData.m_players);
-        setLocalTeam(parsedData.m_local_team);
-        setBombData(parsedData.m_bomb);
-
-        const map = parsedData.m_map;
-        if (map !== "invalid") {
-          setMapData({
-            ...(await (await fetch(`data/${map}/data.json`)).json()),
-            name: map,
-          });
-          document.body.style.backgroundImage = `url(./data/${map}/background.png)`;
+      ws.onclose = () => {
+        clearTimeout(watchdog);
+        if (stopped) return;
+        attempt += 1;
+        if (viaRemembered) rememberedFails += 1;
+        if (rememberedFails >= 2) {
+          try { localStorage.removeItem(RELAY_HOST_KEY); } catch { /* ignore */ }
         }
+        setConnState("retrying");
+        timer = setTimeout(connect, backoff());
+      };
+
+      // onerror 后面一定跟着 onclose，重连逻辑只写在 onclose 里，避免重复排程
+      ws.onerror = () => { /* handled by onclose */ };
+
+      ws.onmessage = async (event) => {
+        let parsed;
+        try { parsed = JSON.parse(await event.data.text()); } catch { return; }
+
+        setPlayerArray(parsed.m_players || []);
+        setLocalTeam(parsed.m_local_team);
+        setBombData(parsed.m_bomb);
+
+        const map = parsed.m_map;
+        if (!map || map === "invalid") return;
+        try {
+          const info = await (await fetch(`data/${map}/data.json`)).json();
+          setMapData({ ...info, name: map });
+          document.body.style.backgroundImage = `url(./data/${map}/background.png)`;
+        } catch { /* 地图资源缺失不致命 */ }
       };
     };
 
-    fetchData();
+    connect();
+
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      try { ws?.close(); } catch { /* ignore */ }
+    };
   }, []);
 
   return (
@@ -160,6 +207,17 @@ const App = () => {
         <div className={`absolute right-2.5 top-2.5 z-50`}>
           <SettingsButton settings={settings} onSettingsChange={setSettings} />
         </div>
+
+        {/* 连接状态：断线时给个明确提示，而不是停在最后一帧骗人 */}
+        {connState !== "online" && (
+          <div
+            className="absolute left-2.5 top-2.5 z-50 px-3 py-1.5 rounded-xl text-sm
+                       bg-radar-panel/80 backdrop-blur border border-radar-secondary/20 text-radar-primary"
+            title={connURL}
+          >
+            {connState === "connecting" ? "连接中…" : "已断开 · 重连中…"}
+          </div>
+        )}
 
         {bombData && bombData.m_blow_time > 0 && !bombData.m_is_defused && (
           <div className={`absolute left-1/2 top-2 flex-col items-center gap-1 z-50`}>
@@ -209,7 +267,9 @@ const App = () => {
           )) || (
               <div id="radar" className={`relative overflow-hidden origin-center`}>
                 <h1 className="radar_message">
-                  Connected! Waiting for data from usermode
+                  {connState === "online"
+                    ? "已连接中继，等待数据…（确认 CS2 已进入对局）"
+                    : "正在连接中继…"}
                 </h1>
               </div>
             )}

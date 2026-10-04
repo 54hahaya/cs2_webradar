@@ -55,8 +55,18 @@ const src = fs.readFileSync(path.join(ROOT, "src", "app.jsx"), "utf8");
 const useLocalhost = Number(/const USE_LOCALHOST = (\d);/.exec(src)[1]);
 const port = Number(/const PORT = (\d+);/.exec(src)[1]);
 const marker = /const RELAY_MARKER = "([^"]+)";/.exec(src)[1];
-const body = src.slice(src.indexOf("const resolveWebSocketURL = async () => {"));
-const fnSrc = body.slice(0, body.indexOf("\n};") + 3);
+// buildWsUrl 也要带上：resolveWebSocketURL 会调它
+const fnSrc = src.slice(
+  src.indexOf("const buildWsUrl = "),
+  src.indexOf("\n};", src.indexOf("const resolveWebSocketURL")) + 3
+);
+
+// Node 里没有 localStorage，给个最小实现
+globalThis.localStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+};
 
 const pageLocation = {
   protocol: "https:",
@@ -66,10 +76,12 @@ const pageLocation = {
   search: `?ip=${host}`,
 };
 const resolve = new Function(
-  "window", "URLSearchParams", "fetch", "USE_LOCALHOST", "PORT", "RELAY_MARKER",
+  "window", "URLSearchParams", "fetch", "USE_LOCALHOST", "PORT", "RELAY_MARKER", "RELAY_HOST_KEY",
   `${fnSrc}; return resolveWebSocketURL();`
 );
-const wsUrl = await resolve({ location: pageLocation }, URLSearchParams, globalThis.fetch, useLocalhost, port, marker);
+const { url: wsUrl } = await resolve(
+  { location: pageLocation }, URLSearchParams, globalThis.fetch, useLocalhost, port, marker, "radarRelayHost"
+);
 console.log(`      ws url = ${wsUrl}`);
 if (wsUrl !== `wss://${host}/cs2_webradar`) fail(`unexpected ws url: ${wsUrl}`);
 
