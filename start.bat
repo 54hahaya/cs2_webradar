@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 echo ============================================================
 echo   CS2 Web-Radar
-echo     ws relay  : ws://127.0.0.1:22006/cs2_webradar
+echo     ws relay  : ws://127.0.0.1:3360/cs2_webradar
 echo     front-end : http://localhost:5173
 echo ============================================================
 echo.

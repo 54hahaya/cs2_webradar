@@ -8,12 +8,12 @@ $log = Join-Path $env:TEMP "cf_selftest.log"
 if (-not (Test-Path $cf)) { Write-Host "[X] not found: $cf"; exit 1 }
 Remove-Item $log -ErrorAction SilentlyContinue
 
-Write-Host "[1/5] starting relay (22006) ..."
+Write-Host "[1/5] starting relay (3360) ..."
 $relay = Start-Process "node" -ArgumentList "ws/app.js" -WorkingDirectory $w -WindowStyle Hidden -PassThru
 Start-Sleep -Seconds 2
 
-$local = (Test-NetConnection 127.0.0.1 -Port 22006 -WarningAction SilentlyContinue).TcpTestSucceeded
-Write-Host "      127.0.0.1:22006 = $local"
+$local = (Test-NetConnection 127.0.0.1 -Port 3360 -WarningAction SilentlyContinue).TcpTestSucceeded
+Write-Host "      127.0.0.1:3360 = $local"
 if (-not $local) {
     Write-Host "[X] relay did not start"
     Stop-Process $relay.Id -Force -ErrorAction SilentlyContinue
@@ -21,7 +21,7 @@ if (-not $local) {
 }
 
 Write-Host "[2/5] starting cloudflared ..."
-$cfp = Start-Process $cf -ArgumentList "tunnel", "--url", "http://localhost:22006", "--no-autoupdate" -WindowStyle Hidden -PassThru -RedirectStandardError $log
+$cfp = Start-Process $cf -ArgumentList "tunnel", "--url", "http://localhost:3360", "--no-autoupdate" -WindowStyle Hidden -PassThru -RedirectStandardError $log
 
 $url = $null
 for ($i = 0; $i -lt 30 -and -not $url; $i++) {

@@ -11,17 +11,21 @@ const CONNECTION_TIMEOUT = 5000;
 /* 改成 '1' 就只连本机 */
 const USE_LOCALHOST = 0;
 
-const PORT = 22006;
+// 中继端口。同源访问用不到它（直接取 location.host，端口自带）；
+// 只有 "?ip=<IPv4>" 和局域网开发这两种情况需要，可用 ?port= 覆盖。
+// 默认值和 radar.json 的 relay_port 保持一致。
+const PORT =
+  Number(new URLSearchParams(window.location.search).get("port")) || 3360;
 
 /* 中继地址解析（优先级从上到下）：
  *   1) URL 带 ?ip=xxx  —— 一个页面连任意地址，不用重新构建
  *        域名（隧道/反代，如 xxx.trycloudflare.com）-> wss://xxx/cs2_webradar（443 + TLS）
- *        IPv4（如 192.168.1.10）                     -> ws://192.168.1.10:22006/cs2_webradar
+ *        IPv4（如 192.168.1.10）                     -> ws://192.168.1.10:3360/cs2_webradar
  *   2) 页面就是中继自己发的 —— 同源，复用当前 host，https 自动升级 wss
  *        判定方式：探测 ./__relay，中继会回固定标记。
  *        不能只看端口：隧道下浏览器地址是 https://xxx.trycloudflare.com，
  *        location.port 是空字符串，用端口判断会漏掉外网场景。
- *   3) 其它（Vite 开发服务器 :5173）—— 连同一台主机的 :22006
+ *   3) 其它（Vite 开发服务器 :5173）—— 连同一台主机的 :3360
  *        局域网开发走这条（手机开 http://<PC-IP>:5173 自动生效）
  */
 const RELAY_MARKER = "cs2_webradar-relay";
@@ -29,7 +33,7 @@ const RELAY_HOST_KEY = "radarRelayHost";     // 记住上次用过的 ?ip=
 
 const buildWsUrl = (host, tls) => {
   const isIPv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
-  // 域名（隧道/反代）走 443 + TLS，不带端口；IPv4 走 22006 明文
+  // 域名（隧道/反代）走 443 + TLS，不带端口；IPv4 走 3360 明文
   return isIPv4 ? `${tls}://${host}:${PORT}/cs2_webradar` : `wss://${host}/cs2_webradar`;
 };
 

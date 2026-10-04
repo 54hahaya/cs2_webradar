@@ -16,8 +16,8 @@ if errorlevel 1 (
 )
 
 echo.
-echo Open on this PC : http://localhost:22006
-echo Open on phone   : http://YOUR-PC-LAN-IP:22006
+echo Open on this PC : http://localhost:3360
+echo Open on phone   : http://YOUR-PC-LAN-IP:3360
 echo Then run tunnel.bat if you need access from outside the LAN.
 echo.
 

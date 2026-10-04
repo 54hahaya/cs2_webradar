@@ -2,7 +2,7 @@
 // 需要先起中继：node ws/app.js   然后 node tools/test-relay.mjs
 import { WebSocket } from "ws";
 
-const URL = "ws://127.0.0.1:22006/cs2_webradar";
+const URL = "ws://127.0.0.1:3360/cs2_webradar";
 const t0 = Date.now();
 let done = false;
 

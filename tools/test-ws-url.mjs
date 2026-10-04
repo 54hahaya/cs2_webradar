@@ -9,7 +9,8 @@ const src = fs.readFileSync(path.join(here, "..", "src", "app.jsx"), "utf8");
 
 // 从真实源码里抽取函数，避免测试的是"副本"
 const useLocalhost = Number(/const USE_LOCALHOST = (\d);/.exec(src)[1]);
-const port = Number(/const PORT = (\d+);/.exec(src)[1]);
+// PORT 现在是 "const PORT = \n Number(...) || 3360;"，取末尾的默认值
+const port = Number(/const PORT =[\s\S]{0,200}?\|\|\s*(\d+)\s*;/.exec(src)[1]);
 const marker = /const RELAY_MARKER = "([^"]+)";/.exec(src)[1];
 // buildWsUrl 也要带上：resolveWebSocketURL 会调它
 const fnSrc = src.slice(
@@ -33,12 +34,12 @@ const makeStorage = (initial = {}) => {
 };
 
 const cases = [
-  ["dev :5173 局域网", J({ hostname: "192.168.8.48", host: "192.168.8.48:5173" }), PLAIN, {}, true, "ws://192.168.8.48:22006/cs2_webradar", false],
-  ["中继 :22006", J({ hostname: "192.168.8.48", port: "22006", host: "192.168.8.48:22006" }), RELAY, {}, true, "ws://192.168.8.48:22006/cs2_webradar", false],
+  ["dev :5173 局域网", J({ hostname: "192.168.8.48", host: "192.168.8.48:5173" }), PLAIN, {}, true, "ws://192.168.8.48:3360/cs2_webradar", false],
+  ["中继 :3360", J({ hostname: "192.168.8.48", port: "3360", host: "192.168.8.48:3360" }), RELAY, {}, true, "ws://192.168.8.48:3360/cs2_webradar", false],
   ["隧道 https(port='')", J({ protocol: "https:", hostname: "x.trycloudflare.com", port: "", host: "x.trycloudflare.com" }), RELAY, {}, true, "wss://x.trycloudflare.com/cs2_webradar", false],
   ["?ip=域名(GitHub Pages)", J({ protocol: "https:", hostname: "u.github.io", port: "", host: "u.github.io", search: "?ip=abc.trycloudflare.com" }), PLAIN, {}, true, "wss://abc.trycloudflare.com/cs2_webradar", false],
-  ["?ip=IPv4", J({ hostname: "192.168.8.48", host: "192.168.8.48:5173", search: "?ip=192.168.8.48" }), PLAIN, {}, true, "ws://192.168.8.48:22006/cs2_webradar", false],
-  ["探测失败回退", J({ hostname: "10.0.0.5", host: "10.0.0.5:5173" }), { ok: false, text: async () => "" }, {}, true, "ws://10.0.0.5:22006/cs2_webradar", false],
+  ["?ip=IPv4", J({ hostname: "192.168.8.48", host: "192.168.8.48:5173", search: "?ip=192.168.8.48" }), PLAIN, {}, true, "ws://192.168.8.48:3360/cs2_webradar", false],
+  ["探测失败回退", J({ hostname: "10.0.0.5", host: "10.0.0.5:5173" }), { ok: false, text: async () => "" }, {}, true, "ws://10.0.0.5:3360/cs2_webradar", false],
   // 新增：?ip= 会被记住
   ["?ip= 被记住", J({ protocol: "https:", hostname: "u.github.io", port: "", host: "u.github.io", search: "?ip=abc.trycloudflare.com" }), PLAIN, {}, true, "wss://abc.trycloudflare.com/cs2_webradar", true],
   // 新增：URL 没带 ?ip= 时用记住的（GitHub Pages 场景）

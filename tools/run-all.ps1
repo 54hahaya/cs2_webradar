@@ -22,9 +22,9 @@ Write-Host "============================================================" -Foreg
 Write-Host ""
 
 # ---------- 0) 端口占用检查 ----------
-$busy = Get-NetTCPConnection -LocalPort 22006 -State Listen -ErrorAction SilentlyContinue
+$busy = Get-NetTCPConnection -LocalPort 3360 -State Listen -ErrorAction SilentlyContinue
 if ($busy) {
-    Write-Host "[!] 22006 已被占用 (pid=$($busy[0].OwningProcess))。可能是上一次的 serve.bat 还开着。" -ForegroundColor Yellow
+    Write-Host "[!] 3360 已被占用 (pid=$($busy[0].OwningProcess))。可能是上一次的 serve.bat 还开着。" -ForegroundColor Yellow
     Write-Host "    先关掉它，或按 Ctrl+C 退出后重试。" -ForegroundColor Yellow
     Write-Host ""
 }
@@ -35,14 +35,14 @@ Write-Host "[1/4] 构建前端 ..." -ForegroundColor Cyan
 if ($LASTEXITCODE -ne 0) { Write-Host "[X] 构建失败" -ForegroundColor Red; exit 1 }
 
 # ---------- 2) 中继 ----------
-Write-Host "[2/4] 启动中继 (22006) ..." -ForegroundColor Cyan
+Write-Host "[2/4] 启动中继 (3360) ..." -ForegroundColor Cyan
 Remove-Item $relayLog -ErrorAction SilentlyContinue
 $relay = Start-Process "node" -ArgumentList "ws/app.js" -WorkingDirectory $webradar -WindowStyle Hidden `
     -PassThru -RedirectStandardOutput $relayLog -RedirectStandardError "$relayLog.err"
 $children += $relay
 Start-Sleep -Seconds 2
 
-if (-not (Test-NetConnection 127.0.0.1 -Port 22006 -WarningAction SilentlyContinue).TcpTestSucceeded) {
+if (-not (Test-NetConnection 127.0.0.1 -Port 3360 -WarningAction SilentlyContinue).TcpTestSucceeded) {
     Write-Host "[X] 中继没起来，日志：$relayLog" -ForegroundColor Red
     Stop-All; exit 1
 }
@@ -56,7 +56,7 @@ if (-not (Test-Path $cf)) {
 } else {
     Write-Host "[3/4] 启动 cloudflared 隧道 ..." -ForegroundColor Cyan
     Remove-Item $tunnelLog -ErrorAction SilentlyContinue
-    $tun = Start-Process $cf -ArgumentList "tunnel", "--url", "http://localhost:22006", "--no-autoupdate" `
+    $tun = Start-Process $cf -ArgumentList "tunnel", "--url", "http://localhost:3360", "--no-autoupdate" `
         -WindowStyle Hidden -PassThru -RedirectStandardError $tunnelLog
     $children += $tun
 
@@ -91,9 +91,9 @@ Write-Host "============================================================" -Foreg
 Write-Host "   打开下面任一地址" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor DarkCyan
 Write-Host ""
-Write-Host "  PC 本机        : http://localhost:22006" -ForegroundColor White
+Write-Host "  PC 本机        : http://localhost:3360" -ForegroundColor White
 if ($lanIp) {
-    Write-Host "  手机(同一WiFi) : http://${lanIp}:22006" -ForegroundColor White
+    Write-Host "  手机(同一WiFi) : http://${lanIp}:3360" -ForegroundColor White
 }
 if ($tunnelUrl) {
     $th = $tunnelUrl -replace '^https://', ''

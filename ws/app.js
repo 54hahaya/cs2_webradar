@@ -6,7 +6,9 @@ import { fileURLToPath } from "url";
 
 console.log("web_server started");
 
-const port = 22006;
+// 端口优先级：命令行参数 > 环境变量 > 默认 3360
+// DLL 自动托管时会用 `node ws/app.js <relay_port>` 传进来（见 net/ProcessHost.hpp）
+const port = Number(process.argv[2]) || Number(process.env.RADAR_PORT) || 3360;
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(ROOT, "..", "dist");
 
@@ -33,7 +35,7 @@ const MIME = {
  * 一个端口同时干两件事：
  *   1) 托管 dist/       -> 页面（外网隧道只要开这一条，页面和 WS 同源）
  *   2) /cs2_webradar    -> WebSocket 中继（纯转发）
- * 这样 cloudflared/ngrok 只需暴露 22006 一个端口。
+ * 这样 cloudflared/ngrok 只需暴露 3360 一个端口。
  */
 const server = http.createServer((req, res) => {
   let urlPath = "/";

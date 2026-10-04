@@ -8,10 +8,10 @@ echo ============================================================
 echo.
 echo Prereq: relay running WITH the built front-end.
 echo   1) npm run build
-echo   2) node ws\app.js      (page + WebSocket on port 22006)
-echo   3) verify http://localhost:22006 locally first
+echo   2) node ws\app.js      (page + WebSocket on port 3360)
+echo   3) verify http://localhost:3360 locally first
 echo.
-echo Then run this script to expose 22006 to the internet.
+echo Then run this script to expose 3360 to the internet.
 echo.
 
 set CF_LOCAL=%~dp0tools\bin\cloudflared.exe
@@ -49,9 +49,9 @@ echo Copy the https://xxxx.trycloudflare.com URL and open it on your phone.
 echo Page and WebSocket share this single URL - no extra config.
 echo.
 if exist "%CF_LOCAL%" (
-    "%CF_LOCAL%" tunnel --url http://localhost:22006 --no-autoupdate
+    "%CF_LOCAL%" tunnel --url http://localhost:3360 --no-autoupdate
 ) else (
-    cloudflared tunnel --url http://localhost:22006
+    cloudflared tunnel --url http://localhost:3360
 )
 goto DONE
 
@@ -68,9 +68,9 @@ echo Starting ngrok ...
 echo Open the https://xxxx.ngrok-free.app URL on your phone.
 echo.
 if exist "%NG_LOCAL%" (
-    "%NG_LOCAL%" http 22006
+    "%NG_LOCAL%" http 3360
 ) else (
-    ngrok http 22006
+    ngrok http 3360
 )
 goto DONE
 

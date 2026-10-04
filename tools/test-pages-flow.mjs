@@ -1,5 +1,5 @@
 // 端到端验证「GitHub Pages + ?ip=<隧道域名>」这条路径：
-//   1) 起中继(22006)
+//   1) 起中继(3360)
 //   2) 起 cloudflared 快速隧道，拿到 https://xxx.trycloudflare.com
 //   3) 用 src/app.jsx 里真实的 resolveWebSocketURL 算地址（location 模拟成 54hahaya.github.io + ?ip=）
 //   4) 用算出来的 wss:// 地址真的连一次 WS，A 发 B 收
@@ -14,7 +14,7 @@ import { WebSocket } from "ws";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CF = path.join(ROOT, "tools", "bin", "cloudflared.exe");
-const PORT = 22006;
+const PORT = 3360;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const kids = [];
@@ -53,7 +53,8 @@ console.log(`      tunnel = ${tunnelUrl}`);
 console.log("[3/5] resolving WS url via src/app.jsx resolveWebSocketURL ...");
 const src = fs.readFileSync(path.join(ROOT, "src", "app.jsx"), "utf8");
 const useLocalhost = Number(/const USE_LOCALHOST = (\d);/.exec(src)[1]);
-const port = Number(/const PORT = (\d+);/.exec(src)[1]);
+// PORT 现在是 "const PORT = \n Number(...) || 3360;"，取末尾的默认值
+const port = Number(/const PORT =[\s\S]{0,200}?\|\|\s*(\d+)\s*;/.exec(src)[1]);
 const marker = /const RELAY_MARKER = "([^"]+)";/.exec(src)[1];
 // buildWsUrl 也要带上：resolveWebSocketURL 会调它
 const fnSrc = src.slice(

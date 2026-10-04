@@ -8,11 +8,11 @@
 | 路径 | 说明 |
 |---|---|
 | `src/` | React 前端（Vite + Tailwind） |
-| `ws/app.js` | 中继：监听 **22006**，同时托管 `dist/` 静态页面 + `/cs2_webradar` WS |
+| `ws/app.js` | 中继：监听 **3360**，同时托管 `dist/` 静态页面 + `/cs2_webradar` WS |
 | `public/data/<map>/` | 17 张地图：`data.json`(x/y/scale) + `radar.png` + `background.png` |
 | `start-all.bat` | **一键启动**：构建 + 中继 + 隧道，并打印全部可用地址 |
 | `serve.bat` | 构建前端 + 起中继（一个端口给页面和 WS） |
-| `tunnel.bat` | 把 22006 暴露到公网（cloudflared / ngrok） |
+| `tunnel.bat` | 把 3360 暴露到公网（cloudflared / ngrok） |
 | `tools/test-ws-url.mjs` | 回归测试：各种部署形态下 WS 地址算得对不对 |
 | `tools/test-relay.mjs` | 回归测试：中继广播是否正常 |
 | `tools/check-case.mjs` | 回归测试：import 大小写（Linux CI 会挂，Windows 不会） |
@@ -31,7 +31,7 @@ DLL 加载后会在**独立线程**里自己把中继（+ 可选隧道）拉起�
   "auto_start": true,
   "mode": "public",
   "webradar_dir": "E:\\...\\webradar",
-  "relay_port": 22006,
+  "relay_port": 3360,
   "node_exe": "node",
   "cloudflared_exe": ""
 }
@@ -47,7 +47,7 @@ DLL 加载后会在**独立线程**里自己把中继（+ 可选隧道）拉起�
 ```
 [host] mode=public   webradar=E:\...\webradar
 [host] 中继 OK
-[host] 手机(同一WiFi) ->  http://192.168.x.x:22006
+[host] 手机(同一WiFi) ->  http://192.168.x.x:3360
 [host] 手机(任意网络) ->  https://xxxx.trycloudflare.com
 ```
 
@@ -59,11 +59,11 @@ DLL 加载后会在**独立线程**里自己把中继（+ 可选隧道）拉起�
 start-all.bat
 ```
 
-它会依次：构建前端 → 起中继(22006) → 起 cloudflared 隧道 → **把全部可用地址打在一屏**：
+它会依次：构建前端 → 起中继(3360) → 起 cloudflared 隧道 → **把全部可用地址打在一屏**：
 
 ```
-  PC 本机        : http://localhost:22006
-  手机(同一WiFi) : http://192.168.x.x:22006
+  PC 本机        : http://localhost:3360
+  手机(同一WiFi) : http://192.168.x.x:3360
   手机(任意网络) : https://xxxx.trycloudflare.com
   Pages 入口     : https://<user>.github.io/<repo>/?ip=xxxx.trycloudflare.com
 ```
@@ -74,7 +74,7 @@ start-all.bat
 
 ```bat
 install.bat     :: 第一次，装 npm 依赖
-start.bat       :: 同时起 ws(22006) + 前端(5173)
+start.bat       :: 同时起 ws(3360) + 前端(5173)
 ```
 
 浏览器打开 <http://localhost:5173>。
@@ -86,9 +86,13 @@ start.bat       :: 同时起 ws(22006) + 前端(5173)
 
 | 场景 | 打开什么 | 连到哪 |
 |---|---|---|
-| **A. 局域网**（PC + 手机同一 WiFi） | 手机开 `http://<PC的IP>:5173` | 自动 `ws://<PC的IP>:22006` |
+| **A. 局域网**（PC + 手机同一 WiFi） | 手机开 `http://<PC的IP>:5173` | 自动 `ws://<PC的IP>:3360` |
 | **B. 外网**（手机不在同一网络） | `serve.bat` → `tunnel.bat` → 手机开隧道给的 `https://xxx.trycloudflare.com` | 同源 `wss://xxx.trycloudflare.com/cs2_webradar` |
-| **C. 静态托管 + 指定IP** | `?ip=` 参数，如 `https://user.github.io/repo/?ip=xxx.trycloudflare.com` | 按参数拼（域名→443/TLS，IPv4→:22006） |
+| **C. 静态托管 + 指定IP** | `?ip=` 参数，如 `https://user.github.io/repo/?ip=xxx.trycloudflare.com` | 按参数拼（域名→443/TLS，IPv4→:3360） |
+
+> **端口**：默认 `3360`（原来是 22006）。同源访问时端口是自动带的，不用管；
+> 只有 `?ip=<IPv4>` 和局域网开发这两种情况会用到默认值，可用 `?port=3361` 临时覆盖。
+> 要**永久**换端口，改两处：DLL 同目录的 `radar.json` → `relay_port`，以及 `src/app.jsx` 里 `PORT` 的默认值（然后重新 build）。
 
 ### C. GitHub Pages（可选，仅在你要"固定网址 / 给别人打开"时才需要）
 
@@ -134,15 +138,15 @@ git push -f origin gh-pages
 ### B. 外网访问（推荐，一条隧道搞定）
 
 ```bat
-serve.bat        :: npm run build + node ws/app.js  → 本机 http://localhost:22006 先验证
+serve.bat        :: npm run build + node ws/app.js  → 本机 http://localhost:3360 先验证
 tunnel.bat       :: 选 1=cloudflared 或 2=ngrok
 ```
 
-关键点：**中继同时托管页面和 WebSocket**，所以隧道只需要暴露 `22006` 一个端口，
+关键点：**中继同时托管页面和 WebSocket**，所以隧道只需要暴露 `3360` 一个端口，
 手机直接打开隧道给的 https 地址即可，不需要再填 IP，也不会碰到 https 页面连 `ws://` 的混合内容拦截。
 
-> ⚠️ 原 fork 的 README 写的是 `ws://<隧道域名>:22006/...`，**这是错的**：
-> cloudflared/ngrok 给的是 443 上的 https/wss，不是 22006 端口。按上面做才对。
+> ⚠️ 原 fork 的 README 写的是 `ws://<隧道域名>:3360/...`，**这是错的**：
+> cloudflared/ngrok 给的是 443 上的 https/wss，不是 3360 端口。按上面做才对。
 
 ### 相关改动（相对原始前端）
 
@@ -162,7 +166,7 @@ npm run test:relay    :: 中继广播（需要先 node ws/app.js）
 ```
 cs2.exe  <--外部 ReadProcessMemory--  我们的进程 (xmllite.dll)
                                           |
-                                          | ws://127.0.0.1:22006/cs2_webradar  (100ms 一帧)
+                                          | ws://127.0.0.1:3360/cs2_webradar  (100ms 一帧)
                                           v
                                     ws/app.js  (中继，纯转发)
                                           |
